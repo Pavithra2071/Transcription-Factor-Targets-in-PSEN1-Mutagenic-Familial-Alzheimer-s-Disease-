@@ -1,0 +1,62 @@
+# Load required libraries
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(tidyverse)
+
+# Set working directory (modify as needed)
+setwd("C:/Users/pavit/OneDrive/Documents/")
+
+# Load raw counts and metadata
+counts <- read.csv("raw_counts.csv", row.names = 1)  # Ensure first column is gene names
+metadata <- read.csv("metadata.csv", row.names = 1)  # Ensure first column is sample names
+
+# Check data
+head(counts)
+head(metadata)
+
+# Convert metadata condition column to factor
+metadata$condition <- factor(metadata$condition, levels = c("control", "PSEN1_mut"))
+
+# Create DESeq2 dataset
+dds <- DESeqDataSetFromMatrix(countData = counts, colData = metadata, design = ~ condition)
+
+# Filter low-expression genes
+dds <- dds[rowSums(counts(dds)) > 10, ]
+
+# Normalize data
+dds <- DESeq(dds)
+
+# Get results for PSEN1 mutation vs control
+res <- results(dds, contrast = c("condition", "PSEN1_mut", "control"))
+
+# Sort results by adjusted p-value
+res <- res[order(res$padj), ]
+
+# Save results
+write.csv(as.data.frame(res), "DESeq2_results.csv")
+
+# Log-transform data for visualization
+rld <- rlog(dds, blind = FALSE)
+
+# PCA Plot
+pca_data <- plotPCA(rld, intgroup = "condition", returnData = TRUE)
+ggplot(pca_data, aes(PC1, PC2, color = condition)) +
+  geom_point(size = 3) + theme_minimal() +
+  labs(title = "PCA Plot of RNA-seq Data", x = "PC1", y = "PC2")
+
+# Heatmap of top 50 DEGs
+top_var_genes <- rownames(res)[1:50]
+pheatmap(assay(rld)[top_var_genes, ], cluster_rows = TRUE, cluster_cols = TRUE)
+
+# Volcano Plot
+res_df <- as.data.frame(res)
+ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
+  geom_point(aes(color = padj < 0.05), alpha = 0.7) +
+  scale_color_manual(values = c("gray", "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
+
+# Save plots
+ggsave("PCA_plot.png")
+ggsave("Volcano_plot.png")
