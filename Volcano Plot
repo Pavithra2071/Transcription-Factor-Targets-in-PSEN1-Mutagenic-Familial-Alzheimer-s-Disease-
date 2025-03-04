@@ -1,0 +1,12 @@
+# Filter combined results for volcano plot (adjust p-value < 0.05 and log2FoldChange > 1 or < -1)
+volcano_data <- combined_results[combined_results$padj < 0.05 & (abs(combined_results$log2FoldChange) > 1), ]
+
+# Create the volcano plot (without labels)
+ggplot(volcano_data, aes(x = log2FoldChange, y = -log10(padj), color = dataset)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Volcano Plot of DESeq2 Results", x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") +
+  scale_color_manual(values = c("blue", "red"))
+  
+# Save the volcano plot as an image (optional)
+ggsave("volcano_plot.png")
