@@ -1,62 +1,32 @@
 # Load required libraries
 library(DESeq2)
 library(ggplot2)
-library(pheatmap)
-library(tidyverse)
+library(ggrepel)
 
-# Set working directory (modify as needed)
-setwd("C:/Users/pavit/OneDrive/Documents/")
+# Step 1: Load raw count data and metadata for Dataset 1 and Dataset 2
 
-# Load raw counts and metadata
-counts <- read.csv("raw_counts.csv", row.names = 1)  # Ensure first column is gene names
-metadata <- read.csv("metadata.csv", row.names = 1)  # Ensure first column is sample names
+# Replace with your file paths
+raw_counts_1 <- read.csv("C:/path/to/your/raw_counts_1.csv", row.names = 1)  # Dataset 1
+metadata_1 <- read.csv("C:/path/to/your/metadata_1.csv", row.names = 1)  # Metadata for Dataset 1
 
-# Check data
-head(counts)
-head(metadata)
+raw_counts_2 <- read.csv("C:/path/to/your/raw_counts_2.csv", row.names = 1)  # Dataset 2
+metadata_2 <- read.csv("C:/path/to/your/metadata_2.csv", row.names = 1)  # Metadata for Dataset 2
 
-# Convert metadata condition column to factor
-metadata$condition <- factor(metadata$condition, levels = c("control", "PSEN1_mut"))
+# Step 2: Create DESeqDataSets for both datasets
+dds_1 <- DESeqDataSetFromMatrix(countData = raw_counts_1, colData = metadata_1, design = ~ condition)
+dds_2 <- DESeqDataSetFromMatrix(countData = raw_counts_2, colData = metadata_2, design = ~ condition)
 
-# Create DESeq2 dataset
-dds <- DESeqDataSetFromMatrix(countData = counts, colData = metadata, design = ~ condition)
+# Step 3: Run DESeq2 on both datasets
+dds_1 <- DESeq(dds_1)
+dds_2 <- DESeq(dds_2)
 
-# Filter low-expression genes
-dds <- dds[rowSums(counts(dds)) > 10, ]
+# Step 4: Obtain DESeq2 results for both datasets
+DESeq2_results1 <- results(dds_1)
+DESeq2_results2 <- results(dds_2)
 
-# Normalize data
-dds <- DESeq(dds)
+# Step 5: Add a column to each result to distinguish the datasets
+DESeq2_results1$dataset <- "Dataset 1"
+DESeq2_results2$dataset <- "Dataset 2"
 
-# Get results for PSEN1 mutation vs control
-res <- results(dds, contrast = c("condition", "PSEN1_mut", "control"))
-
-# Sort results by adjusted p-value
-res <- res[order(res$padj), ]
-
-# Save results
-write.csv(as.data.frame(res), "DESeq2_results.csv")
-
-# Log-transform data for visualization
-rld <- rlog(dds, blind = FALSE)
-
-# PCA Plot
-pca_data <- plotPCA(rld, intgroup = "condition", returnData = TRUE)
-ggplot(pca_data, aes(PC1, PC2, color = condition)) +
-  geom_point(size = 3) + theme_minimal() +
-  labs(title = "PCA Plot of RNA-seq Data", x = "PC1", y = "PC2")
-
-# Heatmap of top 50 DEGs
-top_var_genes <- rownames(res)[1:50]
-pheatmap(assay(rld)[top_var_genes, ], cluster_rows = TRUE, cluster_cols = TRUE)
-
-# Volcano Plot
-res_df <- as.data.frame(res)
-ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj))) +
-  geom_point(aes(color = padj < 0.05), alpha = 0.7) +
-  scale_color_manual(values = c("gray", "red")) +
-  theme_minimal() +
-  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 Adjusted P-value")
-
-# Save plots
-ggsave("PCA_plot.png")
-ggsave("Volcano_plot.png")
+# Step 6: Combine the results from both datasets
+combined_results <- rbind(as.data.frame(DESeq2_results1), as.data.frame(DESeq2_results2))
