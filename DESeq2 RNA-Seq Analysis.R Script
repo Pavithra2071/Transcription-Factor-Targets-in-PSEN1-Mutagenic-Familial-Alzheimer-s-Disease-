@@ -1,32 +1,24 @@
-# Load required libraries
+#Load libraries
 library(DESeq2)
 library(ggplot2)
 library(ggrepel)
+library(pheatmap)
 
-# Step 1: Load raw count data and metadata for Dataset 1 and Dataset 2
+#Load raw counts and metadata
+raw_counts <- read.csv("path/to/raw_counts.csv", row.names = 1)
+metadata <- read.csv("path/to/metadata.csv", row.names = 1)
+all(colnames(raw_counts) %in% rownames(metadata))  # Should return TRUE
 
-# Replace with your file paths
-raw_counts_1 <- read.csv("C:/path/to/your/raw_counts_1.csv", row.names = 1)  # Dataset 1
-metadata_1 <- read.csv("C:/path/to/your/metadata_1.csv", row.names = 1)  # Metadata for Dataset 1
+#Create DESeq2 dataset
+dds <- DESeqDataSetFromMatrix(countData = raw_counts, 
+                              colData = metadata, 
+                              design = ~ condition)  
 
-raw_counts_2 <- read.csv("C:/path/to/your/raw_counts_2.csv", row.names = 1)  # Dataset 2
-metadata_2 <- read.csv("C:/path/to/your/metadata_2.csv", row.names = 1)  # Metadata for Dataset 2
+#Filter out low-expression genes
+dds <- dds[rowSums(counts(dds)) > 10, ]
 
-# Step 2: Create DESeqDataSets for both datasets
-dds_1 <- DESeqDataSetFromMatrix(countData = raw_counts_1, colData = metadata_1, design = ~ condition)
-dds_2 <- DESeqDataSetFromMatrix(countData = raw_counts_2, colData = metadata_2, design = ~ condition)
-
-# Step 3: Run DESeq2 on both datasets
-dds_1 <- DESeq(dds_1)
-dds_2 <- DESeq(dds_2)
-
-# Step 4: Obtain DESeq2 results for both datasets
-DESeq2_results1 <- results(dds_1)
-DESeq2_results2 <- results(dds_2)
-
-# Step 5: Add a column to each result to distinguish the datasets
-DESeq2_results1$dataset <- "Dataset 1"
-DESeq2_results2$dataset <- "Dataset 2"
-
-# Step 6: Combine the results from both datasets
-combined_results <- rbind(as.data.frame(DESeq2_results1), as.data.frame(DESeq2_results2))
+#Differential Expression Analysis
+dds <- DESeq(dds)
+res <- results(dds, contrast = c("condition", "PSEN1_mutant", "WT"))
+significant_DEGs <- subset(res, padj < 0.05)
+write.csv(as.data.frame(significant_DEGs), "DEGs_results.csv")
